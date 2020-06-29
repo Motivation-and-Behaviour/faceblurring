@@ -1,3 +1,7 @@
+# YOLO
+*.cfg
+*.weights
+
 # Mac OS
 *.DS_Store
 
