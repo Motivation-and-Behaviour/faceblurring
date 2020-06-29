@@ -10,18 +10,24 @@ You need Conda installed to build the environment. Or, you could use a pip envir
 2. Use `cd` to move to the directory with the repo.
 3. Create the Conda environment. In Terminal (or Conda Prompt) run:
 
-```conda env create -f environment.yml```
+```
+conda env create -f environment.yml
+```
 
 4. Download the weight files. These are too large for GitHub so are stored on Google Drive. Download [yolov3-face.cfg](https://drive.google.com/file/d/1j0SVta521wNo6KwX-oAbSzh-0wKqO1nM/view?usp=sharing) and [yolov3-wider_16000.weights](https://drive.google.com/open?id=1lBNAgRyQQyWGFQjnu4-n6lEOYf7Nqiiw) and put both in the `weights` folder.
 
 # To Run
 1. Activate the environment. In Terminal (or Conda Prompt) run:
 
-```conda activate faceblurring```
+```
+conda activate faceblurring
+```
 
 2. Start Jupyter (I prefer Lab, but it will run in Notebook too):
 
-```jupyter lab```
+```
+jupyter lab
+```
 
 3. Open `YOLOFace Example.ipnb` from the `notebooks` folder.
 4. Run the cells at the top. Change the `path_to_...` to point to the file or folder you want to run before running those cells.
