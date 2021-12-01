@@ -7,16 +7,28 @@ import tqdm
 from faceblurring.utils import *
 from faceblurring.settings import *
 
+import tensorflow as tf
+
+from keras import backend as K
+
+# import tensorflow.compat.v1.keras.backend as K
+# import tensorflow as tf
+# tf.compat.v1.disable_eager_execution()
 
 class FaceBlurer:
     def __init__(
         self,
         config_path=os.path.abspath("./weights/yolov3-face.cfg"),
         weights_path=os.path.abspath("./weights/yolov3-wider_16000.weights"),
+        # model_path=os.path.abspath("./weights/YOLO_Face.h5"),
+        # anchors_path=os.path.abspath("./cfg/yolo_anchors.txt"),
+        # classes_path=os.path.abspath("./cfg/face_classes.txt")
     ):
         self.net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
-        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        # self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        # self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
     def get_outputs_names(self):
         layers_names = self.net.getLayerNames()
