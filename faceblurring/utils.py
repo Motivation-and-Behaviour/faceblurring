@@ -1,44 +1,6 @@
 import numpy as np
 import cv2
-from faceblurring.settings import *
 from scipy.special import expit
-import os
-
-
-def draw_blur(
-    frame, conf, left, top, right, bottom, incl_box=INCL_BOX, incl_conf=INCL_CONF,
-):
-
-    if incl_box:
-        # Draw a rectangle
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-    if incl_conf:
-        # Add confidence to image
-        text = "{:.2f}".format(conf)
-
-        # Display the label at the top of the bounding box
-        label_size, base_line = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-
-        top = max(top, label_size[1])
-        cv2.putText(
-            frame,
-            text,
-            (left, top - 4),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.4,
-            (255, 255, 255),
-            1,
-        )
-
-    # Add the blurring in
-    roi = frame[top:bottom, left:right]
-
-    # Blur the coloured image
-    blur = cv2.GaussianBlur(roi, (101, 101), 0)
-
-    # Insert the blurred section back into image
-    frame[top:bottom, left:right] = blur
-
 
 def refined_box(left, top, width, height):
     right = left + width
@@ -57,54 +19,32 @@ def refined_box(left, top, width, height):
 
     return left, top, right, bottom
 
-def post_process(frame, outs, conf_threshold, nms_threshold):
-    frame_height = frame.shape[0]
-    frame_width = frame.shape[1]
+def post_process(frame, out_boxes, out_conf, debug = False):
+    for i in range(len(out_boxes)):
+        box = out_boxes[i]
+        conf = out_conf[i]
+        y1, x1, y2, x2 = box.ymin, box.xmin, box.ymax, box.xmax
+		# calculate width and height of the box
+        # width, height = x2 - x1, y2 - y1
 
-    confidences = []
-    boxes = []
-    final_boxes = []
-    for out in outs:
-        for detection in out:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > conf_threshold:
-                center_x = int(detection[0] * frame_width)
-                center_y = int(detection[1] * frame_height)
-                width = int(detection[2] * frame_width)
-                height = int(detection[3] * frame_height)
-                left = int(center_x - width / 2)
-                top = int(center_y - height / 2)
-                confidences.append(float(confidence))
-                boxes.append([left, top, width, height])
+        if debug:
+            # Include the rect and conf
+            cv2.rectangle(frame, (x1, y2), (x2, y1), (0, 0, 255), 2)
+            text = "{:.2f}".format(conf)
+            # Display the label at the top of the bounding box
+            label_size, base_line = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            top = max(y2, label_size[1])
+            cv2.putText(frame, text, (x1, top - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-    # Perform non maximum suppression to eliminate redundant
-    # overlapping boxes with lower confidences.
-    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold,
-                               nms_threshold)
+        # Add the blurring in
+        roi = frame[y1:y2, x1:x2]
 
-    for i in indices:
-        i = i[0]
-        box = boxes[i]
-        left = box[0]
-        top = box[1]
-        width = box[2]
-        height = box[3]
-        final_boxes.append(box)
-        left, top, right, bottom = refined_box(left, top, width, height)
-        draw_blur(frame, confidences[i], left, top, right, bottom)
-    return final_boxes
+        # Blur the coloured image
+        blur = cv2.GaussianBlur(roi, (101, 101), 0)
 
-def batch(iterable, n=1):
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx:min(ndx + n, l)]
+        # Insert the blurred section back into image
+        frame[y1:y2, x1:x2] = blur
 
-
-
-
-# ---------------------------------
 def _sigmoid(x):
     return expit(x)
 
@@ -207,39 +147,7 @@ def preprocess_input(image, net_h, net_w):
     return new_image
 
 def normalize(image):
-    return image/255.
-       
-def get_yolo_boxes(model, images, net_h, net_w, anchors, obj_thresh, nms_thresh):
-    image_h, image_w, _ = images[0].shape
-    nb_images           = len(images)
-    batch_input         = np.zeros((nb_images, net_h, net_w, 3))
-
-    # preprocess the input
-    for i in range(nb_images):
-        batch_input[i] = preprocess_input(images[i], net_h, net_w)        
-
-    # run the prediction
-    batch_output = model.predict_on_batch(batch_input)
-    batch_boxes  = [None]*nb_images
-
-    for i in range(nb_images):
-        yolos = [batch_output[0][i], batch_output[1][i], batch_output[2][i]]
-        boxes = []
-
-        # decode the output of the network
-        for j in range(len(yolos)):
-            yolo_anchors = anchors[(2-j)*6:(3-j)*6] # config['model']['anchors']
-            boxes += decode_netout(yolos[j], yolo_anchors, obj_thresh, net_h, net_w)
-
-        # correct the sizes of the bounding boxes
-        correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w)
-
-        # suppress non-maximal boxes
-        do_nms(boxes, nms_thresh)        
-           
-        batch_boxes[i] = boxes
-
-    return batch_boxes        
+    return image/255.      
 
 class BoundBox:
     def __init__(self, xmin, ymin, xmax, ymax, c = None, classes = None):
@@ -294,163 +202,9 @@ def bbox_iou(box1, box2):
     
     return float(intersect) / union
 
-def draw_boxes(image, boxes, labels, obj_thresh, quiet=True):
-    for box in boxes:
-        label_str = ''
-        label = -1
-        
-        for i in range(len(labels)):
-            if box.classes[i] > obj_thresh:
-                if label_str != '': label_str += ', '
-                label_str += (labels[i] + ' ' + str(round(box.get_score()*100, 2)) + '%')
-                label = i
-            if not quiet: print(label_str)
-                
-        if label >= 0:
-            text_size = cv2.getTextSize(label_str, cv2.FONT_HERSHEY_SIMPLEX, 1.1e-3 * image.shape[0], 5)
-            width, height = text_size[0][0], text_size[0][1]
-            region = np.array([[box.xmin-3,        box.ymin], 
-                               [box.xmin-3,        box.ymin-height-26], 
-                               [box.xmin+width+13, box.ymin-height-26], 
-                               [box.xmin+width+13, box.ymin]], dtype='int32')  
-
-            cv2.rectangle(img=image, pt1=(box.xmin,box.ymin), pt2=(box.xmax,box.ymax), color=get_color(label), thickness=5)
-            cv2.fillPoly(img=image, pts=[region], color=get_color(label))
-            cv2.putText(img=image, 
-                        text=label_str, 
-                        org=(box.xmin+13, box.ymin - 13), 
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-                        fontScale=1e-3 * image.shape[0], 
-                        color=(0,0,0), 
-                        thickness=2)
-        
-    return image          
-
-def get_color(label):
-    """ Return a color from a set of predefined colors. Contains 80 colors in total.
-    code originally from https://github.com/fizyr/keras-retinanet/
-    Args
-        label: The label to get the color for.
-    Returns
-        A list of three values representing a RGB color.
-    """
-    if label < len(colors):
-        return colors[label]
-    else:
-        print('Label {} has no color, returning default.'.format(label))
-        return (0, 255, 0)
-
-colors = [
-    [31  , 0   , 255] ,
-    [0   , 159 , 255] ,
-    [255 , 95  , 0]   ,
-    [255 , 19  , 0]   ,
-    [255 , 0   , 0]   ,
-    [255 , 38  , 0]   ,
-    [0   , 255 , 25]  ,
-    [255 , 0   , 133] ,
-    [255 , 172 , 0]   ,
-    [108 , 0   , 255] ,
-    [0   , 82  , 255] ,
-    [0   , 255 , 6]   ,
-    [255 , 0   , 152] ,
-    [223 , 0   , 255] ,
-    [12  , 0   , 255] ,
-    [0   , 255 , 178] ,
-    [108 , 255 , 0]   ,
-    [184 , 0   , 255] ,
-    [255 , 0   , 76]  ,
-    [146 , 255 , 0]   ,
-    [51  , 0   , 255] ,
-    [0   , 197 , 255] ,
-    [255 , 248 , 0]   ,
-    [255 , 0   , 19]  ,
-    [255 , 0   , 38]  ,
-    [89  , 255 , 0]   ,
-    [127 , 255 , 0]   ,
-    [255 , 153 , 0]   ,
-    [0   , 255 , 255] ,
-    [0   , 255 , 216] ,
-    [0   , 255 , 121] ,
-    [255 , 0   , 248] ,
-    [70  , 0   , 255] ,
-    [0   , 255 , 159] ,
-    [0   , 216 , 255] ,
-    [0   , 6   , 255] ,
-    [0   , 63  , 255] ,
-    [31  , 255 , 0]   ,
-    [255 , 57  , 0]   ,
-    [255 , 0   , 210] ,
-    [0   , 255 , 102] ,
-    [242 , 255 , 0]   ,
-    [255 , 191 , 0]   ,
-    [0   , 255 , 63]  ,
-    [255 , 0   , 95]  ,
-    [146 , 0   , 255] ,
-    [184 , 255 , 0]   ,
-    [255 , 114 , 0]   ,
-    [0   , 255 , 235] ,
-    [255 , 229 , 0]   ,
-    [0   , 178 , 255] ,
-    [255 , 0   , 114] ,
-    [255 , 0   , 57]  ,
-    [0   , 140 , 255] ,
-    [0   , 121 , 255] ,
-    [12  , 255 , 0]   ,
-    [255 , 210 , 0]   ,
-    [0   , 255 , 44]  ,
-    [165 , 255 , 0]   ,
-    [0   , 25  , 255] ,
-    [0   , 255 , 140] ,
-    [0   , 101 , 255] ,
-    [0   , 255 , 82]  ,
-    [223 , 255 , 0]   ,
-    [242 , 0   , 255] ,
-    [89  , 0   , 255] ,
-    [165 , 0   , 255] ,
-    [70  , 255 , 0]   ,
-    [255 , 0   , 172] ,
-    [255 , 76  , 0]   ,
-    [203 , 255 , 0]   ,
-    [204 , 0   , 255] ,
-    [255 , 0   , 229] ,
-    [255 , 133 , 0]   ,
-    [127 , 0   , 255] ,
-    [0   , 235 , 255] ,
-    [0   , 255 , 197] ,
-    [255 , 0   , 191] ,
-    [0   , 44  , 255] ,
-    [50  , 255 , 0]
-]
 
 def _softmax(x, axis=-1):
     x = x - np.amax(x, axis, keepdims=True)
     e_x = np.exp(x)
     
     return e_x / e_x.sum(axis, keepdims=True)
-
-
-# draw all results
-def draw_boxes(filename, v_boxes, v_scores):
-	# load the image
-	data = pyplot.imread(filename)
-	# plot the image
-	pyplot.imshow(data)
-	# get the context for drawing boxes
-	ax = pyplot.gca()
-	# plot each box
-	for i in range(len(v_boxes)):
-		box = v_boxes[i]
-		# get coordinates
-		y1, x1, y2, x2 = box.ymin, box.xmin, box.ymax, box.xmax
-		# calculate width and height of the box
-		width, height = x2 - x1, y2 - y1
-		# create the shape
-		rect = Rectangle((x1, y1), width, height, fill=False, color='white')
-		# draw the box
-		ax.add_patch(rect)
-		# draw text and score in top left corner
-		label = "%.3f" % (v_scores[i])
-		pyplot.text(x1, y1, label, color='white')
-	# show the plot
-	pyplot.show()
