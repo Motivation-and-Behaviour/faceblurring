@@ -1,12 +1,20 @@
-import cv2
-import faceblurring.faceblurer
 import glob
 import os
 
+import cv2
+
+import faceblurring.faceblurer
+
 ################
 # --- INPUTS ---
-participant_id = "1001"
+part_id = "1001"
 input_dir = "C:/Users/MB/Desktop/DCIM/130TLC00"
+
+# Step zero: Generate any outputs
+output_dir = os.path.join(input_dir, "blurred")
+
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
 
 # Step one: create the faceblurring object
 faceblurer = faceblurring.faceblurer.FaceBlurer()
@@ -16,21 +24,21 @@ vid_files = glob.glob(os.path.join(input_dir, "*.AVI"))
 vid_files.sort()
 
 # Step three: run through the videos and code the images
-# for video in video files... 
-# video = cv2.VideoCapture(video_path)
-# video.set(cv2.CAP_PROP_FPS, 1/60)
+img_id = 1
 
-# frame_num = 0
+for vid in vid_files:
+    video = cv2.VideoCapture(vid)
+    video.set(cv2.CAP_PROP_FPS, 1 / 60)  # I think this can be removed?
 
-# while video.isOpened():
-#     success, frame = video.read()
-    
-#     if success:
-#         cv2.imwrite(f"C:/Users/MB/Desktop/DCIM/130TLC00/testout/frame_{frame_num}.jpg", frame)
-#         frame_num +=1
-        
-#     else:
-#         break
+    while video.isOpened():
+        success, frame = video.read()
+
+        if success:
+            out_name = os.path.join(output_dir, f"{part_id}_{img_id:05}.jpg")
+            img_id += 1
+
+        else:
+            break
 
 # Step four: create csv file of images
 
