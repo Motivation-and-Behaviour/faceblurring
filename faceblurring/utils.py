@@ -20,10 +20,14 @@ def refined_box(left, top, width, height):
     return left, top, right, bottom
 
 def post_process(frame, out_boxes, out_conf, debug = False):
+    frame_h, frame_w, _ = frame.shape
+    
     for i in range(len(out_boxes)):
         box = out_boxes[i]
         conf = out_conf[i]
-        y1, x1, y2, x2 = box.ymin, box.xmin, box.ymax, box.xmax
+        y1, x1, y2, x2 = max(box.ymin, 0), max(box.xmin, 0), min(box.ymax, frame_h), min(box.xmax, frame_w)
+        
+
 		# calculate width and height of the box
         # width, height = x2 - x1, y2 - y1
 
@@ -32,18 +36,20 @@ def post_process(frame, out_boxes, out_conf, debug = False):
             cv2.rectangle(frame, (x1, y2), (x2, y1), (0, 0, 255), 2)
             text = "{:.2f}".format(conf)
             # Display the label at the top of the bounding box
-            label_size, base_line = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            label_size, base_line = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 2, 1)
             top = max(y2, label_size[1])
             cv2.putText(frame, text, (x1, top - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         # Add the blurring in
         roi = frame[y1:y2, x1:x2]
-
-        # Blur the coloured image
-        blur = cv2.GaussianBlur(roi, (101, 101), 0)
-
-        # Insert the blurred section back into image
-        frame[y1:y2, x1:x2] = blur
+        
+        try:
+            # Blur the coloured image
+            blur = cv2.GaussianBlur(roi, (101, 101), 0)
+            # Insert the blurred section back into image
+            frame[y1:y2, x1:x2] = blur
+        except:
+            if debug: print(f"[ERROR] Blurring failed.")
 
 def _sigmoid(x):
     return expit(x)
