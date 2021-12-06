@@ -5,12 +5,48 @@ import faceblurring.faceblurer
 from faceblurring.settings import *
 from timeit import default_timer as timer
 import csv
+import logging
+import tkinter as tk
+from tkinter import filedialog
+from tkinter import simpledialog
+from tqdm import tqdm
 
+if not DEBUG:
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # FATAL
+    logging.getLogger('tensorflow').setLevel(logging.FATAL)
+
+
+print("""
+###########################################
+            KidVision Faceblurring
+###########################################
+""")
 
 ################
 # --- INPUTS ---
-part_id = "1001"
-input_dir = "C:/Users/MB/Desktop/DCIM/130TLC00"
+root = tk.Tk()
+root.withdraw()
+
+print("[INFO] Getting parameters...")
+
+while True:
+    part_id = simpledialog.askstring("Participant ID", "Please provide the four digit ID number")
+    if len(part_id) == 4:
+        break
+    else:
+        print("Participant ID must be a four digit code")
+
+# Input dir
+
+print("Please provide the location of the timelapse videos")
+input_dir = filedialog.askdirectory()
+
+print(f"""
+Participant ID: {part_id}
+Input Files:    {input_dir}
+
+Starting program...
+""")
 
 # Step zero: Generate any outputs
 output_dir = os.path.join(OUTPUT_DIR, f"Participant_{part_id}")
@@ -31,27 +67,31 @@ print(f"[INFO] Found {len(vid_files)} TLC files.")
 img_id = 1
 start_time = timer()
 
-for vid in vid_files:
+for vid in tqdm(vid_files, "Timelapse Files"):
     video = cv2.VideoCapture(vid)
     video.set(cv2.CAP_PROP_FPS, 1 / 60)  # I think this can be removed?
 
-    while video.isOpened():
-        success, frame = video.read()
+    vid_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        if success:
-            out_name = os.path.join(output_dir_images, f"{part_id}_{img_id:05}.jpg")
-            img_id += 1
-            faceblurer.process_frame(frame, out_name)
+    with tqdm(total=vid_length, leave=False, desc="Frames") as frame_pbar:
+        while video.isOpened():
+            success, frame = video.read()
 
-        else:
-            break
+            if success:
+                out_name = os.path.join(output_dir_images, f"{part_id}_{img_id:05}.jpg")
+                img_id += 1
+                faceblurer.process_frame(frame, out_name)
+                frame_pbar.update(1)
+
+            else:
+                break
     
     video.release()
 
 end_time = timer()
 total_time = round(end_time - start_time, 3)
 
-print(f"[INFO] Created {img_id-1} images in {total_time} ({round((img_id-1)/total_time,1)} fps).")
+print(f"[INFO] Created {img_id-1} images in {total_time} seconds ({round((img_id-1)/total_time,1)} fps).")
 
 # Step four: create csv file of images
 image_files = glob.glob(os.path.join(output_dir_images, "*.jpg"))
@@ -67,11 +107,12 @@ with open(csv_path, "w", newline='') as f:
 
 
 # Step five: create timelapse video
+print(f"[INFO] Creating timelapse video")
 start_time = timer()
 
 out = cv2.VideoWriter(os.path.join(output_dir, "timelapse.avi"),cv2.VideoWriter_fourcc(*'DIVX'), OUT_VID_FPS, (1920,1080))
 
-for image_file in image_files:
+for image_file in tqdm(image_files):
     frame = cv2.imread(image_file)
     frame_num = image_file[-9:-4]
     cv2.putText(frame, f"Frame: {frame_num}", 
@@ -82,7 +123,7 @@ for image_file in image_files:
 out.release()
 end_time = timer()
 total_time = round(end_time - start_time, 3)
-print(f"[INFO] Created timelapse video in {total_time}")
+print(f"[INFO] Created timelapse video in {total_time} seconds")
 
 # Step six: delete from csv
 print("Please confirm that the csv file has been saved and closed.")
@@ -126,5 +167,8 @@ if not DEBUG:
         os.remove(vid_file)
     print("\tRemoved original camera data")
     # Participant timelapse
-    os.remove(os.path.join(output_dir, "timelapse.avi"))
-    print("\tRemoved blurred timelapse video")
+    try:
+        os.remove(os.path.join(output_dir, "timelapse.avi"))
+        print("\tRemoved blurred timelapse video")
+    except:
+        print("Could not remove blurred timelapse video (it might still be open?)")
