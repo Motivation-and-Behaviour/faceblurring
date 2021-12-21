@@ -1,5 +1,7 @@
 ######## PARAMS ########
-CONF_THRESH = 0.85
-NMS_THRESH = 0.4
-IMG_WIDTH, IMG_HEIGHT = 288, 288  # Must be multiple of 32
-INCL_BOX, INCL_CONF = True, True  # For debug only. Set to False for production
+CONF_THRESH = 0.6
+NMS_THRESH = 0.5
+IMG_DIMS = 320  # Must be multiple of 32
+DEBUG = False
+OUTPUT_DIR="C:/Users/MB/Desktop/KidVision Data"
+OUT_VID_FPS = 15.0
