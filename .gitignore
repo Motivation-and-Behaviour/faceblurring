@@ -140,3 +140,4 @@ weights/yolo_anchors.txt
 weights/YOLO_Face.h5
 cfg/face_classes.txt
 cfg/yolo_anchors.txt
+.vscode/settings.json
