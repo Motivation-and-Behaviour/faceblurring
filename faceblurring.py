@@ -74,7 +74,7 @@ def main():
 
     # Step four: create csv file of images
     csv_path = os.path.join(output_dir, f"Image_Log_{part_id}.csv")
-    image_files = fb.create_csv(output_dir_images, img_id, part_id, csv_path)
+    image_files = fb.create_csv(output_dir_images, img_id, csv_path)
 
     # Step five: create timelapse video
     fb.create_timelapse_video(output_dir, image_files)
