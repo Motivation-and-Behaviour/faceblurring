@@ -231,3 +231,10 @@ def tidy_up(vid_files, output_dir):
             print("Could not remove blurred timelapse video (it might still be open?)")
             input("Press enter to retry")
 
+
+def is_tlc_video(frame):
+    return (
+        (np.all(frame[1056, 50] == [16, 16, 16]))  # Bottom left corner
+        and (np.all(frame[1056, 1870] == [16, 16, 16]))  # Bottom right corner
+        and (np.all(frame[1056, 777] == [240, 240, 240]))  # "T" in TLC
+    )
