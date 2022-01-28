@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from timeit import default_timer as timer
 
 import cv2
@@ -7,6 +8,7 @@ from tqdm import tqdm
 
 import faceblurring.faceblurer as fb
 from faceblurring.settings import *
+from faceblurring.utils import gen_step_frames
 
 if not DEBUG:
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # FATAL
@@ -46,19 +48,40 @@ def main():
     for vid in tqdm(vid_files, "Timelapse Files"):
         video = cv2.VideoCapture(vid)
 
+        vid_name = Path(vid).stem
+
         vid_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        with tqdm(total=vid_length, leave=False, desc="Frames") as frame_pbar:
+        vid_frame_n = 0
+        sv_frames = gen_step_frames(video.get(cv2.CAP_PROP_FPS), STEP_VID_LENGTH)
+
+        with tqdm(
+            total=vid_length, leave=False, desc=f"Frames (current file: {vid_name}",
+        ) as frame_pbar:
             while video.isOpened():
                 success, frame = video.read()
 
                 if success:
-                    out_name = os.path.join(
-                        output_dir_images, f"{part_id}_{img_id:05}.jpg"
-                    )
-                    img_id += 1
-                    faceblurer.process_frame(frame, out_name)
-                    frame_pbar.update(1)
+                    if vid_frame_n == 0:
+                        # Only run the check on the first frame
+                        tlc_vid = fb.is_tlc_video(frame)
+                        current_sv_frame = next(sv_frames)
+                        if not tlc_vid:
+                            print("[INFO] Step video detected\n")
+
+                    if (tlc_vid) or (not tlc_vid and current_sv_frame == vid_frame_n):
+                        out_name = os.path.join(
+                            output_dir_images, f"{part_id}_{vid_name}_{img_id:05}.jpg"
+                        )
+                        img_id += 1
+                        faceblurer.process_frame(frame, out_name)
+                        frame_pbar.update(1)
+                        if vid_frame_n >= current_sv_frame:
+                            current_sv_frame = next(sv_frames)
+
+                        vid_frame_n += 1
+                    else:
+                        frame_pbar.update(1)
 
                 else:
                     break

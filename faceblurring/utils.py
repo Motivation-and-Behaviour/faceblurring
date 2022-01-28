@@ -248,3 +248,10 @@ def _softmax(x, axis=-1):
     e_x = np.exp(x)
 
     return e_x / e_x.sum(axis, keepdims=True)
+
+
+def gen_step_frames(vid_fps, step_vid_length):
+    t = 0
+    while True:
+        yield int(t * vid_fps)
+        t += step_vid_length
