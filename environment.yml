@@ -10,6 +10,7 @@ dependencies:
   - opencv
   - tk
   - tqdm
+  - scipy
   - pip
   - pip:
     - tensorflow==2.7.0
