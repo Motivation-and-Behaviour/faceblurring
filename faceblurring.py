@@ -79,9 +79,10 @@ def main():
                         if vid_frame_n >= current_sv_frame:
                             current_sv_frame = next(sv_frames)
 
-                        vid_frame_n += 1
                     else:
                         frame_pbar.update(1)
+
+                    vid_frame_n += 1
 
                 else:
                     break
