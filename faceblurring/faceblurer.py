@@ -74,46 +74,6 @@ class FaceBlurer:
         # if self.debug: print(f"write: {write_end-write_start}")
 
 
-def get_inputs():
-    root = tk.Tk()
-    root.withdraw()
-
-    print("[INFO] Getting parameters...")
-
-    while True:
-        part_id = simpledialog.askstring(
-            "Participant ID", "Please provide the four digit ID number"
-        )
-        if len(part_id) == 4:
-            break
-        else:
-            print("Participant ID must be a four digit code")
-
-    # Input dir
-
-    print("Please provide the location of the timelapse videos")
-    input_dir = filedialog.askdirectory()
-
-    print(
-        f"""
-    Participant ID: {part_id}
-    Input Files:    {input_dir}
-
-    Starting program...
-    """
-    )
-
-    return part_id, input_dir
-
-
-def get_video_files(input_dir):
-    vid_files = glob.glob(os.path.join(input_dir, "*.AVI"))
-    vid_files.sort()
-    print(f"[INFO] Found {len(vid_files)} TLC files.")
-
-    return vid_files
-
-
 def create_csv(output_dir_images, img_id, csv_path):
     image_files = glob.glob(os.path.join(output_dir_images, "*.jpg"))
     image_files.sort()
@@ -230,11 +190,3 @@ def tidy_up(vid_files, output_dir):
         except:
             print("Could not remove blurred timelapse video (it might still be open?)")
             input("Press enter to retry")
-
-
-def is_tlc_video(frame):
-    return (
-        (np.all(frame[1056, 50] == [16, 16, 16]))  # Bottom left corner
-        and (np.all(frame[1056, 1870] == [16, 16, 16]))  # Bottom right corner
-        and (np.all(frame[1056, 777] == [240, 240, 240]))  # "T" in TLC
-    )

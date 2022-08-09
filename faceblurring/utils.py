@@ -1,6 +1,69 @@
+import glob
+import os
+import tkinter as tk
+
 import cv2
 import numpy as np
 from scipy.special import expit
+
+
+def get_inputs():
+    root = tk.Tk()
+    root.withdraw()
+
+    print("[INFO] Getting parameters...")
+
+    while True:
+        part_id = tk.simpledialog.askstring(
+            "Participant ID", "Please provide the four digit ID number"
+        )
+        if len(part_id) == 4:
+            break
+        else:
+            print("Participant ID must be a four digit code")
+
+    # Input dir
+
+    print("Please provide the location of the timelapse videos")
+    input_dir = tk.filedialog.askdirectory()
+
+    print(
+        f"""
+    Participant ID: {part_id}
+    Input Files:    {input_dir}
+
+    Starting program...
+    """
+    )
+
+    return part_id, input_dir
+
+
+def get_video_files(input_dir):
+    vid_files = glob.glob(os.path.join(input_dir, "*.AVI"))
+    vid_files.sort()
+    print(f"[INFO] Found {len(vid_files)} TLC files.")
+
+    return vid_files
+
+
+def is_tlc_video(frame):
+    return (
+        (np.all(frame[1056, 50] == [16, 16, 16]))  # Bottom left corner
+        and (np.all(frame[1056, 1870] == [16, 16, 16]))  # Bottom right corner
+        and (np.all(frame[1056, 777] == [240, 240, 240]))  # "T" in TLC
+    )
+
+
+def gen_step_frames(vid_fps, step_vid_length):
+    t = 0
+    while True:
+        yield int(t * vid_fps)
+        t += step_vid_length
+
+
+def make_out_name(outdir, part_id, vid_name, img_id):
+    return os.path.join(outdir, f"{part_id}_{vid_name}_{img_id:05}.jpg")
 
 
 def refined_box(left, top, width, height):
@@ -249,9 +312,3 @@ def _softmax(x, axis=-1):
 
     return e_x / e_x.sum(axis, keepdims=True)
 
-
-def gen_step_frames(vid_fps, step_vid_length):
-    t = 0
-    while True:
-        yield int(t * vid_fps)
-        t += step_vid_length
