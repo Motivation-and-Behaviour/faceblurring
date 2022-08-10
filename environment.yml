@@ -5,14 +5,15 @@ dependencies:
   - python=3.8.12
   - black
   - colorama
+  - Cython
   - isort
   - jupyterlab
-  - numpy
-  - opencv
+  - numpy >=1.16.5,<1.23.0
   - tk
   - tqdm
   - scipy
   - pip
   - pip:
-    - tensorflow-gpu==2.7.0
-    - facenet-pytorch
+    - opencv-python
+    - insightface
+    - onnxruntime-gpu

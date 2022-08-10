@@ -1,20 +1,17 @@
 import cv2
+import insightface
 import numpy as np
-import torch
+import onnxruntime as ort
 from colorama import Fore, Style, init
-from facenet_pytorch import MTCNN
+from insightface.app import FaceAnalysis
 from tqdm import tqdm
 
 
 def check_device():
-    if torch.cuda.is_available():
-        return "cuda:0"
-
-    print(
-        f"{Fore.YELLOW}WARNING: {Style.RESET_ALL}Could not find GPU. Falling back to CPU."
-    )
-
-    return "cpu"
+    if ort.get_device() != "GPU":
+        print(
+            f"{Fore.YELLOW}WARNING: {Style.RESET_ALL}Could not find GPU. Falling back to CPU."
+        )
 
 
 def detect_faces(detector, images, batch_size):

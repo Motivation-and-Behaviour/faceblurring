@@ -4,11 +4,10 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import cv2
-from colorama import Fore, init
-from facenet_pytorch import MTCNN
-from tqdm import tqdm
 import numpy as np
+from colorama import Fore, init
 from PIL import Image
+from tqdm import tqdm
 
 from faceblurring.detection import *
 from faceblurring.settings import *
@@ -30,8 +29,7 @@ def main():
     ################
     # --- INPUTS ---
     part_id, input_dir = get_inputs()
-    device = check_device()
-    resize_x, resize_y = int(1920 / DIM_FACTOR[device]), int(1080 / DIM_FACTOR[device])
+    check_device()
 
     # Step zero: Generate any outputs
     output_dir = os.path.join(OUTPUT_DIR, f"Participant_{part_id}")
@@ -41,13 +39,10 @@ def main():
         os.makedirs(output_dir_images)
 
     # Step one: create the face detector
-    detector = MTCNN(
-        image_size=720,
-        device=device,
-        keep_all=True,
-        post_process=False,
-        select_largest=False,
+    detector = FaceAnalysis(
+        allowed_modules=["detection"], providers=["CUDAExecutionProvider"]
     )
+    detector.prepare(ctx_id=0, det_size=(640, 640))
 
     # Step two: create the list of video files
     vid_files = get_video_files(input_dir)
@@ -74,12 +69,10 @@ def main():
         vid_frame_n = 0
         sv_frames = gen_step_frames(video.get(cv2.CAP_PROP_FPS), STEP_VID_LENGTH)
 
-        frames, frames_resized, out_names = [], [], []
+        frames, out_names = [], []
 
         with tqdm(
-            total=vid_length,
-            leave=False,
-            desc=f"Loading frames (current file: {vid_name}",
+            total=vid_length, leave=False, desc=f"Loading frames (file: {vid_name})",
         ) as frame_pbar:
             while video.isOpened():
                 success, frame = video.read()
@@ -90,7 +83,9 @@ def main():
                         tlc_vid = is_tlc_video(frame)
                         current_sv_frame = next(sv_frames)
                         if not tlc_vid:
-                            print("[INFO] Step video detected\n")
+                            frame_pbar.set_description(
+                                f"Loading frames (file: {vid_name} is a step video)"
+                            )
 
                     if (tlc_vid) or (not tlc_vid and current_sv_frame == vid_frame_n):
                         out_names.append(
@@ -100,7 +95,6 @@ def main():
                         # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                         frames.append(frame)
-                        frames_resized.append(Image.fromarray(cv2.resize(frame, (resize_x, resize_y))))
 
                         img_id += 1
                         if vid_frame_n >= current_sv_frame:
@@ -117,15 +111,15 @@ def main():
         video.release()
 
         # Detect faces in the resized images
-        boxes, confs = detect_faces(detector, frames_resized, BATCH_SIZE[device])
+        faces = []
+        for frame in tqdm(frames, leave=False,):
+            faces.append(detector.get(frame))
 
-        assert all(len(frames) == len(l) for l in [confs, out_names])
-
-        for i, frame in enumerate(tqdm(frames, "Blurring faces", leave=False)):
+        for i, frame in enumerate(
+            tqdm(frames, leave=False, desc=f"Blurring faces (file: {vid_name})")
+        ):
             # Blur the frame
-            blurred_frame = blur_faces(
-                frame, boxes[i], confs[i], DIM_FACTOR[device], DEBUG
-            )
+            blurred_frame = blur_faces(frame, faces[i], DEBUG)
 
             # Save the frame to disk
             cv2.imwrite(out_names[i], blurred_frame)
@@ -164,6 +158,8 @@ def main():
     # Step seven: delete the original files
     if not DEBUG:
         tidy_up(vid_files, output_dir)
+
+    input("Finished! Press any key to close...")
 
 
 if __name__ == "__main__":

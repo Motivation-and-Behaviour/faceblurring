@@ -1,10 +1,10 @@
+import csv
 import glob
 import os
 import tkinter as tk
 from tkinter import filedialog, simpledialog
 
 import cv2
-import csv
 import numpy as np
 from colorama import Fore
 from scipy.special import expit
@@ -68,17 +68,16 @@ def gen_step_frames(vid_fps, step_vid_length):
 def make_out_name(outdir, part_id, vid_name, img_id):
     return os.path.join(outdir, f"{part_id}_{vid_name}_{img_id:05}.jpg")
 
-def blur_faces(frame, boxes, confs, resize_factor, debug = False):
-    if boxes is None:
+
+def blur_faces(frame, faces, debug=False):
+    if not len(faces):
         return frame
 
     frame_h, frame_w, _ = frame.shape
 
-    for i in range(len(boxes)):
-        box = boxes[i]
-        conf = confs[i]
-
-        x1, y1, x2, y2 = resize_box(box, frame_h, frame_w, resize_factor)
+    for face in faces:
+        x1, y1, x2, y2 = resize_box(face["bbox"], frame_h, frame_w)
+        conf = face["det_score"]
 
         if debug:
             # Include the rect and conf
@@ -114,15 +113,16 @@ def blur_faces(frame, boxes, confs, resize_factor, debug = False):
     return frame
 
 
-def resize_box(box, frame_h, frame_w, resize_factor):
+def resize_box(box, frame_h, frame_w):
     x1, y1, x2, y2 = (
-        max(int(box[0] * resize_factor), 0),
-        max(int(box[1] * resize_factor), 0),
-        min(int(box[2] * resize_factor), frame_w),
-        min(int(box[3] * resize_factor), frame_h),
+        max(int(box[0]), 0),
+        max(int(box[1]), 0),
+        min(int(box[2]), frame_w),
+        min(int(box[3]), frame_h),
     )
 
     return (x1, y1, x2, y2)
+
 
 def create_csv(output_dir_images, img_id, csv_path):
     image_files = glob.glob(os.path.join(output_dir_images, "*.jpg"))
@@ -135,6 +135,7 @@ def create_csv(output_dir_images, img_id, csv_path):
         writer.writerows(zip(out_ids, [""] * len(out_ids)))
 
     return image_files
+
 
 def delete_images(csv_path, output_dir_images, part_id, debug=False):
     to_delete = get_images_for_deletion(csv_path)
@@ -149,6 +150,7 @@ def delete_images(csv_path, output_dir_images, part_id, debug=False):
                 print(f"Could not find file {part_id}_{id}.jpg")
 
     print(f"[INFO] Deleted {deleted} files.")
+
 
 def get_images_for_deletion(csv_path):
     check_csv_closed(csv_path)
@@ -172,6 +174,7 @@ def get_images_for_deletion(csv_path):
 
     return to_delete
 
+
 def check_csv_closed(csv_path):
     print("Please confirm that the csv file has been saved and closed.")
     while True:
@@ -187,11 +190,15 @@ def check_csv_closed(csv_path):
 
     csv_file.close()
 
+
 def print_instructions(output_dir, csv_path):
     print(f"{Fore.GREEN} INSTRUCTIONS\n\n")
-    print("Particpant to review the timelapse and indicate images to be deleted on the CSV file.\n")
+    print(
+        "Particpant to review the timelapse and indicate images to be deleted on the CSV file.\n"
+    )
     print(f"Participant Timelapse: {os.path.join(output_dir, 'timelapse.avi')}")
     print(f"Particpant CSV: {csv_path}")
+
 
 def tidy_up(vid_files, output_dir):
     print("Cleaning up...")
@@ -211,46 +218,3 @@ def tidy_up(vid_files, output_dir):
             print("Could not remove blurred timelapse video (it might still be open?)")
             input("Press enter to retry")
 
-def post_process(frame, out_boxes, out_conf, debug=False):
-    frame_h, frame_w, _ = frame.shape
-
-    for i in range(len(out_boxes)):
-        box = out_boxes[i]
-        conf = out_conf[i]
-        y1, x1, y2, x2 = (
-            max(box.ymin, 0),
-            max(box.xmin, 0),
-            min(box.ymax, frame_h),
-            min(box.xmax, frame_w),
-        )
-
-        if debug:
-            # Include the rect and conf
-            cv2.rectangle(frame, (x1, y2), (x2, y1), (0, 0, 255), 2)
-            text = "{:.2f}".format(conf)
-            # Display the label at the top of the bounding box
-            label_size, base_line = cv2.getTextSize(
-                text, cv2.FONT_HERSHEY_SIMPLEX, 2, 1
-            )
-            top = max(y2, label_size[1])
-            cv2.putText(
-                frame,
-                text,
-                (x1, top - 4),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                (255, 255, 255),
-                1,
-            )
-
-        # Add the blurring in
-        roi = frame[y1:y2, x1:x2]
-
-        try:
-            # Blur the coloured image
-            blur = cv2.GaussianBlur(roi, (101, 101), 0)
-            # Insert the blurred section back into image
-            frame[y1:y2, x1:x2] = blur
-        except:
-            if debug:
-                print(f"[ERROR] Blurring failed.")
