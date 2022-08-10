@@ -7,15 +7,14 @@ import cv2
 from colorama import Fore, init
 from facenet_pytorch import MTCNN
 from tqdm import tqdm
+import numpy as np
+from PIL import Image
 
-import faceblurring.faceblurer as fb
 from faceblurring.detection import *
 from faceblurring.settings import *
 from faceblurring.utils import *
 
-if not DEBUG:
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # FATAL
-    logging.getLogger("tensorflow").setLevel(logging.FATAL)
+np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 def main():
@@ -32,7 +31,7 @@ def main():
     # --- INPUTS ---
     part_id, input_dir = get_inputs()
     device = check_device()
-    resize_x, resize_y = 1920 / DIM_FACTOR[device], 1080 / DIM_FACTOR[device]
+    resize_x, resize_y = int(1920 / DIM_FACTOR[device]), int(1080 / DIM_FACTOR[device])
 
     # Step zero: Generate any outputs
     output_dir = os.path.join(OUTPUT_DIR, f"Participant_{part_id}")
@@ -42,10 +41,24 @@ def main():
         os.makedirs(output_dir_images)
 
     # Step one: create the face detector
-    detector = MTCNN(device=device, keep_all=True, post_process=False)
+    detector = MTCNN(
+        image_size=720,
+        device=device,
+        keep_all=True,
+        post_process=False,
+        select_largest=False,
+    )
 
     # Step two: create the list of video files
     vid_files = get_video_files(input_dir)
+
+    # Create the output timelapse
+    out_tlc = cv2.VideoWriter(
+        os.path.join(output_dir, "timelapse.avi"),
+        cv2.VideoWriter_fourcc(*"DIVX"),
+        OUT_VID_FPS,
+        (1920, 1080),
+    )
 
     # Step three: run through the videos and code the images
     img_id = 1
@@ -84,9 +97,10 @@ def main():
                             make_out_name(output_dir_images, part_id, vid_name, img_id)
                         )
 
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
                         frames.append(frame)
-                        frames_resized.append(cv2.resize(frame, (resize_x, resize_y)))
+                        frames_resized.append(Image.fromarray(cv2.resize(frame, (resize_x, resize_y))))
 
                         img_id += 1
                         if vid_frame_n >= current_sv_frame:
@@ -102,6 +116,35 @@ def main():
 
         video.release()
 
+        # Detect faces in the resized images
+        boxes, confs = detect_faces(detector, frames_resized, BATCH_SIZE[device])
+
+        assert all(len(frames) == len(l) for l in [confs, out_names])
+
+        for i, frame in enumerate(tqdm(frames, "Blurring faces", leave=False)):
+            # Blur the frame
+            blurred_frame = blur_faces(
+                frame, boxes[i], confs[i], DIM_FACTOR[device], DEBUG
+            )
+
+            # Save the frame to disk
+            cv2.imwrite(out_names[i], blurred_frame)
+
+            # Add the frame to the TLC Video
+            frame_num = out_names[i][-9:-4]
+            cv2.putText(
+                blurred_frame,
+                f"Frame: {frame_num}",
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 255, 255),
+                2,
+                cv2.LINE_4,
+            )
+            out_tlc.write(blurred_frame)
+
+    out_tlc.release()
     end_time = timer()
     total_time = round(end_time - start_time, 3)
 
@@ -111,17 +154,16 @@ def main():
 
     # Step four: create csv file of images
     csv_path = os.path.join(output_dir, f"Image_Log_{part_id}.csv")
-    image_files = fb.create_csv(output_dir_images, img_id, csv_path)
+    image_files = create_csv(output_dir_images, img_id, csv_path)
 
-    # Step five: create timelapse video
-    fb.create_timelapse_video(output_dir, image_files)
+    print_instructions(output_dir, csv_path)
 
     # Step six: delete from csv
-    fb.delete_images(csv_path, output_dir_images, part_id)
+    delete_images(csv_path, output_dir_images, part_id, DEBUG)
 
     # Step seven: delete the original files
     if not DEBUG:
-        fb.tidy_up(vid_files, output_dir)
+        tidy_up(vid_files, output_dir)
 
 
 if __name__ == "__main__":
