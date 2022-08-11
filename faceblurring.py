@@ -32,7 +32,9 @@ def main():
     check_device()
 
     # Step zero: Generate any outputs
-    output_dir = os.path.join(OUTPUT_DIR, f"Participant_{part_id}")
+    output_dir = os.path.join(
+        os.path.expanduser("~"), "Desktop", OUTPUT_FOLDER, f"Participant_{part_id}"
+    )
     output_dir_images = os.path.join(output_dir, "images")
 
     if not os.path.exists(output_dir_images):
@@ -147,8 +149,8 @@ def main():
     )
 
     # Step four: create csv file of images
-    csv_path = os.path.join(output_dir, f"Image_Log_{part_id}.csv")
-    image_files = create_csv(output_dir_images, img_id, csv_path)
+    csv_path = os.path.join(output_dir, f"{part_id}_ImageLog.csv")
+    create_csv(output_dir_images, img_id, csv_path)
 
     print_instructions(output_dir, csv_path)
 

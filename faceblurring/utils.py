@@ -128,26 +128,25 @@ def create_csv(output_dir_images, img_id, csv_path):
     image_files = glob.glob(os.path.join(output_dir_images, "*.jpg"))
     image_files.sort()
     out_ids = ["{:05d}".format(id) for id in range(1, img_id)]
+    image_files_base = [os.path.basename(filename) for filename in image_files]
 
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["Frame", "Delete"])
-        writer.writerows(zip(out_ids, [""] * len(out_ids)))
-
-    return image_files
+        writer.writerow(["Frame", "Delete", "Filename"])
+        writer.writerows(zip(out_ids, [""] * len(out_ids), image_files_base))
 
 
 def delete_images(csv_path, output_dir_images, part_id, debug=False):
     to_delete = get_images_for_deletion(csv_path)
 
     deleted = 0
-    for id in to_delete:
+    for file in to_delete:
         try:
-            os.remove(os.path.join(output_dir_images, f"{part_id}_{id}.jpg"))
+            os.remove(os.path.join(output_dir_images, file))
             deleted += 1
         except:
             if debug:
-                print(f"Could not find file {part_id}_{id}.jpg")
+                print(f"Could not find file {file}")
 
     print(f"[INFO] Deleted {deleted} files.")
 
@@ -155,20 +154,17 @@ def delete_images(csv_path, output_dir_images, part_id, debug=False):
 def get_images_for_deletion(csv_path):
     check_csv_closed(csv_path)
 
-    to_delete = list()
+    to_delete = []
 
     # read the csv file back in
     with open(csv_path, "r") as f:
         reader = csv.reader(f)
         for row in reader:
             if len(row[1]):
-                to_delete.append(row[0])
+                to_delete.append(row[2])
 
     # First item will be the header
     to_delete = to_delete[1:]
-
-    # Repad the numbers
-    to_delete = [id.rjust(5, "0") for id in to_delete]
 
     print(f"[INFO] There are {len(to_delete)} files to be deleted.")
 
@@ -198,6 +194,7 @@ def print_instructions(output_dir, csv_path):
     )
     print(f"Participant Timelapse: {os.path.join(output_dir, 'timelapse.avi')}")
     print(f"Particpant CSV: {csv_path}")
+    os.startfile(output_dir)
 
 
 def tidy_up(vid_files, output_dir):
