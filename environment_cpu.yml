@@ -1,0 +1,19 @@
+name: faceblurring-cpu
+channels:
+  - defaults
+dependencies:
+  - python=3.8.12
+  - black
+  - colorama
+  - Cython
+  - isort
+  - jupyterlab
+  - numpy <1.24.0
+  - tk
+  - tqdm
+  - scipy
+  - pip
+  - pip:
+    - opencv-python
+    - insightface
+    - onnxruntime
