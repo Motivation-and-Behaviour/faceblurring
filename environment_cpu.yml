@@ -1,4 +1,4 @@
-name: faceblurring
+name: faceblurring-cpu
 channels:
   - defaults
 dependencies:
@@ -16,4 +16,4 @@ dependencies:
   - pip:
     - opencv-python
     - insightface
-    - onnxruntime-gpu
+    - onnxruntime

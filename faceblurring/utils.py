@@ -1,6 +1,7 @@
 import csv
 import glob
 import os
+import subprocess
 import tkinter as tk
 from tkinter import filedialog, simpledialog
 
@@ -194,7 +195,10 @@ def print_instructions(output_dir, csv_path):
     )
     print(f"Participant Timelapse: {os.path.join(output_dir, 'timelapse.avi')}")
     print(f"Particpant CSV: {csv_path}")
-    os.startfile(output_dir)
+    try:
+        os.startfile(output_dir)
+    except AttributeError:
+        subprocess.call(["open", output_dir])
 
 
 def tidy_up(vid_files, output_dir):
@@ -214,4 +218,3 @@ def tidy_up(vid_files, output_dir):
         except:
             print("Could not remove blurred timelapse video (it might still be open?)")
             input("Press enter to retry")
-
