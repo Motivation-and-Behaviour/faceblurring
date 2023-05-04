@@ -94,3 +94,9 @@ class local_file_picker(ui.dialog):
             self.submit([r["path"] for r in rows])
         else:
             self.submit([str(self.path)])
+
+
+async def pick_file(element) -> None:
+    result = await local_file_picker("~", multiple=False)
+    ui.notify(f"You chose {result}")
+    element.text = result
