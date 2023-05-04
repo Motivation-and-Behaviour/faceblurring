@@ -16,6 +16,8 @@ dependencies:
   - pip:
     - opencv-python
     - orjson==3.8.10
+    - onnxruntime-gpu; sys_platform == 'linux'
+    - onnxruntime-gpu; sys_platform == 'win32'
+    - onnxruntime; sys_platform == 'darwin'
     - insightface
-    - onnxruntime
     - nicegui
