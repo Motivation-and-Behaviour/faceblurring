@@ -1,7 +1,6 @@
 import asyncio
 import time
 from concurrent.futures import ProcessPoolExecutor
-from functools import partial
 from multiprocessing import Manager, Queue
 
 from nicegui import app, ui
@@ -27,7 +26,7 @@ def heavy_computation(q: Queue, video) -> str:
 
 def labelled_progress_bar(video):
     ui.label(video)
-    return ui.linear_progress(value=0).props("instant-feedback")
+    return ui.linear_progress(value=0).props("instant-feedback stripe rounded")
 
 
 def parse_queue(queue):

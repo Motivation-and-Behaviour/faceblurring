@@ -6,6 +6,7 @@ from nicegui import ui
 from .. import config, utils
 from . import validate
 from .local_file_picker import local_file_picker, pick_file
+from .processing_tab import make_progressbars
 
 default_outputdir = [os.path.join(os.path.expanduser("~"), "Desktop", "KidVision Data")]
 
@@ -41,7 +42,7 @@ def validate_inputs():
         )
 
     # Validate advanced settings
-    adv_settings_valid, adv_settings = validate.validate_settings(adv_settings)
+    adv_settings_valid = validate.validate_settings(adv_settings)
     if not adv_settings_valid:
         return
     else:
@@ -51,9 +52,11 @@ def validate_inputs():
         config.STEP_VID_LENGTH = adv_settings["step_len"]
         config.STEP_VID_INTERVAL = adv_settings["step_int"]
 
+    config.video_files = utils.get_video_files(config.input_dir)
     config.ui_tab_processing.enable()
     config.active_tab = "Processing"
-    config.tab_panel.set_value(config.active_tab)
+    config.ui_tab_panel.set_value(config.active_tab)
+    make_progressbars.refresh()
 
 
 def content():

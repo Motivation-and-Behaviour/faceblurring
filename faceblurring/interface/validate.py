@@ -42,6 +42,6 @@ def validate_outputdir(output_path):
 
 def validate_settings(advanced_settings: dict):
     return all(
-        isinstance(x, (int, float, complex)) and not isinstance(x, bool)
+        isinstance(x.value, (int, float, complex)) and not isinstance(x.value, bool)
         for x in list(advanced_settings.values())[1:]
     )

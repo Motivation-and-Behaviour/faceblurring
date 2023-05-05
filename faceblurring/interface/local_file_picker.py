@@ -98,5 +98,4 @@ class local_file_picker(ui.dialog):
 
 async def pick_file(element) -> None:
     result = await local_file_picker("~", multiple=False)
-    ui.notify(f"You chose {result}")
     element.text = result
