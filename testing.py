@@ -1,6 +1,7 @@
 import asyncio
 import time
 from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from multiprocessing import Manager, Queue
 
 from nicegui import app, ui
@@ -18,39 +19,42 @@ def heavy_computation(q: Queue, video) -> str:
         time.sleep(0.1)
 
         # Update the progress bar through the queue
-        q.put_nowait(i / n)
+        update = (videos.index(video), i / (n - 1))
+        q.put_nowait(update)
+        print(update)
     return "Done!"
+
+
+def labelled_progress_bar(video):
+    ui.label(video)
+    return ui.linear_progress(value=0).props("instant-feedback")
+
+
+def parse_queue(queue):
+    if not queue.empty():
+        video_idx, progress = queue.get()
+        progressbars[video_idx].set_value(progress)
+        if progress == 1:
+            progressbars[video_idx].props("color=positive")
 
 
 @ui.page("/")
 def main_page():
     async def start_computation():
-        for i, video in enumerate(videos):
+        for video in videos:
             loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                pool, heavy_computation, queue[i], video
-            )
+            result = await loop.run_in_executor(pool, heavy_computation, queue, video)
             ui.notify(result)
 
     # Create a queue to communicate with the heavy computation process
-    queue = [Manager().Queue() for _ in range(len(videos))]
+    queue = Manager().Queue()
     # Update the progress bar on the main process
-    [
-        ui.timer(
-            0.1,
-            callback=lambda: progressbars[i].set_value(
-                queue[i].get() if not queue[i].empty() else progressbars[i].value
-            ),
-        )
-        for i in range(len(videos))
-    ]
+    ui.timer(0.1, callback=lambda: parse_queue(queue))
 
     # Create the UI
+    global progressbars
+    progressbars = [labelled_progress_bar(video) for video in videos]
     ui.button("compute", on_click=start_computation)
-    progressbars = [
-        ui.linear_progress(value=0).props("instant-feedback stripe")
-        for _ in range(len(videos))
-    ]
 
 
 # stop the pool when the app is closed; will not cancel any running tasks

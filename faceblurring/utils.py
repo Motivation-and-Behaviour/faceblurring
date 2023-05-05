@@ -11,42 +11,9 @@ from colorama import Fore
 from scipy.special import expit
 
 
-def get_inputs():
-    root = tk.Tk()
-    root.withdraw()
-
-    print("[INFO] Getting parameters...")
-
-    while True:
-        part_id = tk.simpledialog.askstring(
-            "Participant ID", "Please provide the four digit ID number"
-        )
-        if len(part_id) == 4:
-            break
-        else:
-            print("Participant ID must be a four digit code")
-
-    # Input dir
-
-    print("Please provide the location of the timelapse videos")
-    input_dir = tk.filedialog.askdirectory()
-
-    print(
-        f"""
-    Participant ID: {part_id}
-    Input Files:    {input_dir}
-
-    Starting program...
-    """
-    )
-
-    return part_id, input_dir
-
-
 def get_video_files(input_dir):
     vid_files = glob.glob(os.path.join(input_dir, "*.AVI"))
     vid_files.sort()
-    print(f"[INFO] Found {len(vid_files)} TLC files.")
 
     return vid_files
 
