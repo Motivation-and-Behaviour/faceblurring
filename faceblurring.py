@@ -74,7 +74,9 @@ def main():
         frames, out_names = [], []
 
         with tqdm(
-            total=vid_length, leave=False, desc=f"Loading frames (file: {vid_name})",
+            total=vid_length,
+            leave=False,
+            desc=f"Loading frames (file: {vid_name})",
         ) as frame_pbar:
             while video.isOpened():
                 success, frame = video.read()
@@ -114,7 +116,10 @@ def main():
 
         # Detect faces in the resized images
         faces = []
-        for frame in tqdm(frames, leave=False,):
+        for frame in tqdm(
+            frames,
+            leave=False,
+        ):
             faces.append(detector.get(frame))
 
         for i, frame in enumerate(
