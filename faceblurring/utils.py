@@ -68,8 +68,8 @@ def gen_step_frames(vid_fps, step_vid_length):
         t += step_vid_length
 
 
-def make_out_name(outdir, part_id, vid_name, img_id):
-    return os.path.join(outdir, f"{part_id}_{vid_name}_{img_id:05}.jpg")
+def make_out_name(outdir, part_id, vid_name, frame_img_id):
+    return os.path.join(outdir, f"{part_id}_{vid_name}_{frame_img_id:05}.jpg")
 
 
 def create_csv(output_dir_images, img_id, csv_path):

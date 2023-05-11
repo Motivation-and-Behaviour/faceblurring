@@ -3,14 +3,14 @@ import cv2
 from . import settings, utils
 
 
-def process_and_save_frame(frame, img_id, faces, output_dir, part_id, vid_name):
+def process_and_save_frame(frame, frame_img_id, faces, output_dir, part_id, vid_name):
     processed_frame = blur_faces(frame, faces, settings.DEBUG)
-    output_path = utils.make_out_name(output_dir, part_id, vid_name, img_id)
+    output_path = utils.make_out_name(output_dir, part_id, vid_name, frame_img_id)
     cv2.imwrite(output_path, processed_frame)
 
     cv2.putText(
         processed_frame,
-        f"Frame: {img_id:05}",
+        f"Frame: {frame_img_id:05}",
         (50, 50),
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
@@ -19,7 +19,7 @@ def process_and_save_frame(frame, img_id, faces, output_dir, part_id, vid_name):
         cv2.LINE_4,
     )
 
-    return (img_id, processed_frame)
+    return (frame_img_id, processed_frame)
 
 
 def blur_faces(frame, faces, debug=False):

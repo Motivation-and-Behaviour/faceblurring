@@ -111,13 +111,13 @@ def main():
                 executor.submit(
                     faceblurring.process_and_save_frame,
                     frame,
-                    img_id,
+                    frame_img_id,
                     faces,
                     output_dir_images,
                     part_id,
                     vid_name,
-                ): img_id
-                for img_id, frame, faces in frames
+                ): frame_img_id
+                for frame_img_id, frame, faces in frames
             }
 
             for future in tqdm(
@@ -126,11 +126,11 @@ def main():
                 total=len(future_to_frame),
                 leave=False,
             ):
-                img_id, processed_frame = future.result()
-                processed_frames.append((img_id, processed_frame))
+                frame_img_id, processed_frame = future.result()
+                processed_frames.append((frame_img_id, processed_frame))
 
         processed_frames.sort(key=lambda x: x[0])
-        for img_id, processed_frame in processed_frames:
+        for frame_img_id, processed_frame in processed_frames:
             out_tlc.write(processed_frame)
 
     out_tlc.release()
