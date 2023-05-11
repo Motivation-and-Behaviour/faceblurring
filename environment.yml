@@ -1,4 +1,4 @@
-name: faceblurring-dev
+name: faceblurring
 channels:
   - defaults
 dependencies:
@@ -19,5 +19,6 @@ dependencies:
     - onnxruntime-gpu; sys_platform == 'linux'
     - onnxruntime-gpu; sys_platform == 'win32'
     - onnxruntime; sys_platform == 'darwin'
+    - torch
     - insightface
     - nicegui
