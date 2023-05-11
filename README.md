@@ -1,9 +1,17 @@
-# Face Blurring with YOLO
+# Face Blurring
 
-**Adknowledgements**: The code borrows heavily from [YOLOFace](https://github.com/sthanhng/yoloface). I've just edited to fit my workflow.
+## Description
+
+This script is designed to support the KidVision research project.
+It is designed to work with the Brinno TLC130, although it should also support other Brinno cameras.
+It will blur faces in the video files, and save the blurred videos to a new folder.
+The original files are destroyed, per ethics requirements.
 
 # Requirements
-You need Conda installed to build the environment. Or, you could use a pip environment with numpy, opencv and Python 3.7.
+You need Conda installed to build the environment. 
+You can get it [here](https://docs.conda.io/en/latest/miniconda.html).
+
+To run on GPU (strongly recommended if deploying in the field), you will also need to have CUDA and CUDNN installed.
 
 # Install
 1. Clone the repo, either using Git or by downloading the zip.
@@ -14,23 +22,19 @@ You need Conda installed to build the environment. Or, you could use a pip envir
 conda env create -f environment.yml
 ```
 
-4. Download the weight files. These are too large for GitHub so are stored on Google Drive. Download [yolov3-face.cfg](https://drive.google.com/file/d/1j0SVta521wNo6KwX-oAbSzh-0wKqO1nM/view?usp=sharing) and [yolov3-wider_16000.weights](https://drive.google.com/open?id=1lBNAgRyQQyWGFQjnu4-n6lEOYf7Nqiiw) and put both in the `weights` folder.
-
 # To Run
-1. Activate the environment. In Terminal (or Conda Prompt) run:
+1. Activate the environment. 
+In Terminal (or Conda Prompt) run:
 
 ```
 conda activate faceblurring
 ```
 
-2. Start Jupyter (I prefer Lab, but it will run in Notebook too):
+2. Run the script. 
+In Terminal (or Conda Prompt) run:
 
 ```
-jupyter lab
+python face_blurring.py
 ```
 
-3. Open `YOLOFace Example.ipnb` from the `notebooks` folder.
-4. Run the cells at the top. Change the `path_to_...` to point to the file or folder you want to run before running those cells.
-
-## Outputs
-The outputs go in the same directory as the original file/folder. It will append "\_blurred" to the filename to prevent overwriting your original files.
+3. Follow the prompts to pick the participant ID and the location of the video files.

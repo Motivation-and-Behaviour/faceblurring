@@ -1,6 +1,6 @@
 ######## PARAMS ########
 CONF_THRESH = 0.6
-DEBUG = True
+DEBUG = False
 OUTPUT_FOLDER = "KidVision Data"
 OUT_VID_FPS = 15.0
 STEP_VID_LENGTH = 3
