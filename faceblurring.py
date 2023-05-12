@@ -5,7 +5,8 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import cv2
-import torch
+
+# import torch
 from colorama import Fore, init
 from insightface.app import FaceAnalysis
 from tqdm import tqdm
@@ -70,9 +71,7 @@ def main():
 
         frames = []
         with tqdm(
-            total=vid_length,
-            leave=False,
-            desc=f"Processing frames (file: {vid_name})",
+            total=vid_length, leave=False, desc=f"Processing frames (file: {vid_name})",
         ) as frame_pbar:
             while video.isOpened():
                 success, frame = video.read()
