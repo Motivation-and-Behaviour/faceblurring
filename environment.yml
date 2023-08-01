@@ -2,7 +2,7 @@ name: faceblurring
 channels:
   - defaults
 dependencies:
-  - python=3.8.12
+  - python=3.10.11
   - black
   - colorama
   - Cython
@@ -15,5 +15,10 @@ dependencies:
   - pip
   - pip:
     - opencv-python
+    - orjson==3.8.10
+    - onnxruntime-gpu; sys_platform == 'linux'
+    - onnxruntime-gpu; sys_platform == 'win32'
+    - onnxruntime; sys_platform == 'darwin'
+    - torch
     - insightface
-    - onnxruntime-gpu
+    - nicegui

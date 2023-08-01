@@ -1,19 +1,17 @@
-import logging
+import concurrent.futures
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from timeit import default_timer as timer
 
 import cv2
-import numpy as np
+
+# import torch
 from colorama import Fore, init
-from PIL import Image
+from insightface.app import FaceAnalysis
 from tqdm import tqdm
 
-from faceblurring.detection import *
-from faceblurring.settings import *
-from faceblurring.utils import *
-
-np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+from faceblurring import faceblurring, settings, utils
 
 
 def main():
@@ -28,12 +26,15 @@ def main():
 
     ################
     # --- INPUTS ---
-    part_id, input_dir = get_inputs()
-    check_device()
+    part_id, input_dir = utils.get_inputs()
+    det_size, backend = utils.check_device()
 
     # Step zero: Generate any outputs
     output_dir = os.path.join(
-        os.path.expanduser("~"), "Desktop", OUTPUT_FOLDER, f"Participant_{part_id}"
+        os.path.expanduser("~"),
+        "Desktop",
+        settings.OUTPUT_FOLDER,
+        f"Participant_{part_id}",
     )
     output_dir_images = os.path.join(output_dir, "images")
 
@@ -41,40 +42,36 @@ def main():
         os.makedirs(output_dir_images)
 
     # Step one: create the face detector
-    detector = FaceAnalysis(
-        allowed_modules=["detection"], providers=["CUDAExecutionProvider"]
-    )
-    detector.prepare(ctx_id=0, det_size=(640, 640))
+    detector = FaceAnalysis(allowed_modules=["detection"], providers=backend)
+    detector.prepare(ctx_id=0, det_size=det_size)
 
     # Step two: create the list of video files
-    vid_files = get_video_files(input_dir)
+    vid_files = utils.get_video_files(input_dir)
 
     # Create the output timelapse
     out_tlc = cv2.VideoWriter(
         os.path.join(output_dir, "timelapse.avi"),
         cv2.VideoWriter_fourcc(*"DIVX"),
-        OUT_VID_FPS,
+        settings.OUT_VID_FPS,
         (1920, 1080),
     )
 
-    # Step three: run through the videos and code the images
     img_id = 1
+    written_frames = 0
     start_time = timer()
 
     for vid in tqdm(vid_files, "Timelapse Files"):
         video = cv2.VideoCapture(vid)
-
         vid_name = Path(vid).stem
-
         vid_length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-
         vid_frame_n = 0
-        sv_frames = gen_step_frames(video.get(cv2.CAP_PROP_FPS), STEP_VID_LENGTH)
+        sv_frames = utils.gen_step_frames(
+            video.get(cv2.CAP_PROP_FPS), settings.STEP_VID_LENGTH
+        )
 
-        frames, out_names = [], []
-
+        frames = []
         with tqdm(
-            total=vid_length, leave=False, desc=f"Loading frames (file: {vid_name})",
+            total=vid_length, leave=False, desc=f"Processing frames (file: {vid_name})",
         ) as frame_pbar:
             while video.isOpened():
                 success, frame = video.read()
@@ -82,7 +79,7 @@ def main():
                 if success:
                     if vid_frame_n == 0:
                         # Only run the check on the first frame
-                        tlc_vid = is_tlc_video(frame)
+                        tlc_vid = utils.is_tlc_video(frame)
                         current_sv_frame = next(sv_frames)
                         if not tlc_vid:
                             frame_pbar.set_description(
@@ -90,20 +87,14 @@ def main():
                             )
 
                     if (tlc_vid) or (not tlc_vid and current_sv_frame == vid_frame_n):
-                        out_names.append(
-                            make_out_name(output_dir_images, part_id, vid_name, img_id)
-                        )
-
-                        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                        frames.append(frame)
+                        faces = detector.get(frame)
+                        frames.append((img_id, frame, faces))
 
                         img_id += 1
                         if vid_frame_n >= current_sv_frame:
                             current_sv_frame = next(sv_frames)
 
-                    else:
-                        frame_pbar.update(1)
+                    frame_pbar.update(1)
 
                     vid_frame_n += 1
 
@@ -112,33 +103,34 @@ def main():
 
         video.release()
 
-        # Detect faces in the resized images
-        faces = []
-        for frame in tqdm(frames, leave=False,):
-            faces.append(detector.get(frame))
+        processed_frames = []
 
-        for i, frame in enumerate(
-            tqdm(frames, leave=False, desc=f"Blurring faces (file: {vid_name})")
-        ):
-            # Blur the frame
-            blurred_frame = blur_faces(frame, faces[i], DEBUG)
+        with ThreadPoolExecutor() as executor:
+            future_to_frame = {
+                executor.submit(
+                    faceblurring.process_and_save_frame,
+                    frame,
+                    frame_img_id,
+                    faces,
+                    output_dir_images,
+                    part_id,
+                    vid_name,
+                ): frame_img_id
+                for frame_img_id, frame, faces in frames
+            }
 
-            # Save the frame to disk
-            cv2.imwrite(out_names[i], blurred_frame)
+            for future in tqdm(
+                concurrent.futures.as_completed(future_to_frame),
+                desc="Saving frames",
+                total=len(future_to_frame),
+                leave=False,
+            ):
+                frame_img_id, processed_frame = future.result()
+                processed_frames.append((frame_img_id, processed_frame))
 
-            # Add the frame to the TLC Video
-            frame_num = out_names[i][-9:-4]
-            cv2.putText(
-                blurred_frame,
-                f"Frame: {frame_num}",
-                (50, 50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 255, 255),
-                2,
-                cv2.LINE_4,
-            )
-            out_tlc.write(blurred_frame)
+        processed_frames.sort(key=lambda x: x[0])
+        for frame_img_id, processed_frame in processed_frames:
+            out_tlc.write(processed_frame)
 
     out_tlc.release()
     end_time = timer()
@@ -150,16 +142,16 @@ def main():
 
     # Step four: create csv file of images
     csv_path = os.path.join(output_dir, f"{part_id}_ImageLog.csv")
-    create_csv(output_dir_images, img_id, csv_path)
+    utils.create_csv(output_dir_images, img_id, csv_path)
 
-    print_instructions(output_dir, csv_path)
+    utils.print_instructions(output_dir, csv_path)
 
     # Step six: delete from csv
-    delete_images(csv_path, output_dir_images, part_id, DEBUG)
+    utils.delete_images(csv_path, output_dir_images, part_id, settings.DEBUG)
 
     # Step seven: delete the original files
-    if not DEBUG:
-        tidy_up(vid_files, output_dir)
+    if not settings.DEBUG:
+        utils.tidy_up(vid_files, output_dir)
 
     input("Finished! Press any key to close...")
 
